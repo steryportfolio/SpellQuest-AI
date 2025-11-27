@@ -1,0 +1,20 @@
+[
+  {
+    "username": "10158",
+    "password": "stery"
+  },
+  {
+    "username": "user1",
+    "password": "123"
+  },
+  {
+    "username": "user-2",
+    "password": "1234",
+    "score": 0
+  },
+  {
+    "username": "stery",
+    "password": "10158",
+    "score": 0
+  }
+]

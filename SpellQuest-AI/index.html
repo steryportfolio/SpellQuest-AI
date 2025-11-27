@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SpellQuest - Synced Images & No-Repeats</title>
+<style>
+  body { font-family: 'Comic Sans MS', cursive, Arial; background: linear-gradient(135deg,#ffe6f0,#fff); margin:0; padding:20px; display:flex; flex-direction:column; align-items:center; text-align:center;}
+  h1{ color:#d6336c; margin-bottom:10px;}
+  #rewards{ margin-bottom:12px; height:36px;}
+  .star{ width:30px;height:30px;display:inline-block;background:url('https://cdn-icons-png.flaticon.com/512/616/616490.png') no-repeat center center;background-size:contain;opacity:.4;margin:0 4px;vertical-align:middle;}
+  .star.earned{ opacity:1; }
+  #game-area{ max-width:700px;width:100%;background:#fff0f5;padding:20px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.15);}
+  #word-display{ font-size:2.2em;margin-bottom:12px;cursor:pointer;font-weight:700;}
+  #hint-container{ margin:12px 0;}
+  #hint-img{ max-width:220px;margin-top:10px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,.15); display:none;}
+  #letter-bag,#spell-box{ display:flex;flex-wrap:wrap;justify-content:center;min-height:60px;margin:18px 0;border-radius:10px;background:white;box-shadow:0 0 10px rgba(0,0,0,0.08);padding:12px;}
+  .tile{ width:54px;height:54px;background:#cc6699;border-radius:10px;color:white;display:flex;align-items:center;justify-content:center;margin:6px;font-size:24px;font-weight:700;cursor:pointer;user-select:none;transition:transform .15s;}
+  .tile:active{ transform:scale(1.12); }
+  button{ background:#d6336c;color:white;border:none;border-radius:12px;font-size:1em;padding:10px 16px;margin:10px 6px;cursor:pointer;box-shadow:0 5px 15px rgba(214,51,108,0.7);}
+  button:disabled{ background:#bbb; cursor:default;}
+  #feedback{ font-size:1.2em; min-height:48px; margin-top:8px; font-weight:600;}
+  #stats{ margin-top:12px; font-size:1.05em;}
+  #ai-hint-text{ margin-top:8px; font-size:1em; color:#2c3e50; min-height:24px; font-weight:600;}
+</style>
+</head>
+<body>
+
+  <nav style="margin-bottom: 20px;">
+    <a href="index.html" style="margin-right:15px; font-size:18px;">Home</a>
+    <a href="login.html" style="margin-right:15px; font-size:18px;">Login</a>
+    <a href="register.html" style="font-size:18px;">Register</a>
+  </nav>
+
+  <h1>🌟 SpellQuest</h1>
+
+  <div id="rewards" aria-live="polite"></div>
+  <div id="game-area" role="main" aria-label="Spelling game area">
+    <div id="word-display" tabindex="0" role="button" aria-pressed="false" aria-label="Click to listen to the word">Press Start to Begin</div>
+    <div>
+      <button id="start-btn">Start Game</button>
+      <button id="hint-btn" disabled aria-controls="hint-img" aria-expanded="false">Show Hint</button>
+      <button id="check-btn" disabled>Check Spelling</button>
+      <button id="next-btn" style="display:none">Next Word</button>
+    </div>
+
+    <div id="hint-container">
+      <img id="hint-img" alt="Hint image for the current word" />
+      <div id="ai-hint-text" aria-live="polite"></div>
+    </div>
+
+    <h3>Available Letters</h3>
+    <div id="letter-bag" aria-label="Available letter tiles" role="list"></div>
+
+    <h3>Your Spelling</h3>
+    <div id="spell-box" aria-label="Spelling area" role="list" tabindex="0"></div>
+
+    <div id="feedback" aria-live="polite"></div>
+    <div id="stats" aria-live="polite">Score: 0 | Level: 1</div>
+  </div>
+
+<script>
+/* Tell mam here that this ao model is been used.
+    * AI-powered smart hints: /api/hint (LLM) -> text hint under image.
+    * Adaptive word selection: uses player's history stored in localStorage.
+*/
+
+const words = {
+  1: [
+    { word: 'cat', hint: './images/cat.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616408.png' },
+    { word: 'dog', hint: './images/dog.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616408.png' },
+    { word: 'sun', hint: './images/sun.png', cdn: 'https://cdn-icons-png.flaticon.com/512/1164/1164954.png' },
+    { word: 'hat', hint: './images/hat.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616494.png' },
+    { word: 'bat', hint: './images/bat.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616449.png' },
+    { word: 'bird', hint: './images/bird.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616430.png' }
+  ],
+  2: [
+    { word: 'apple', hint: './images/apple.png', cdn: 'https://cdn-icons-png.flaticon.com/512/415/415733.png' },
+    { word: 'train', hint: './images/train.png', cdn: 'https://cdn-icons-png.flaticon.com/512/744/744465.png' },
+    { word: 'green', hint: './images/green.png', cdn: 'https://cdn-icons-png.flaticon.com/512/169/169367.png' },
+    { word: 'horse', hint: './images/horse.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616460.png' },
+    { word: 'plant', hint: './images/plant.png', cdn: 'https://cdn-icons-png.flaticon.com/512/415/415733.png' },
+    { word: 'cloud', hint: './images/cloud.png', cdn: 'https://cdn-icons-png.flaticon.com/512/414/414927.png' }
+  ],
+  3: [
+    { word: 'moon', hint: './images/moon.png', cdn: 'https://cdn-icons-png.flaticon.com/512/1164/1164956.png' },
+    { word: 'frog', hint: './images/frog.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616490.png' },
+    { word: 'cake', hint: './images/cake.png', cdn: 'https://cdn-icons-png.flaticon.com/512/1404/1404945.png' },
+    { word: 'bus', hint: './images/bus.png', cdn: 'https://cdn-icons-png.flaticon.com/512/61/61231.png' },
+    { word: 'pencil', hint: './images/pencil.png', cdn: 'https://cdn-icons-png.flaticon.com/512/2089/2089780.png' },
+    { word: 'zebra', hint: './images/zebra.png', cdn: 'https://cdn-icons-png.flaticon.com/512/616/616430.png' }
+  ]
+};
+
+let wordsPool = {};
+let currentLevel = 1;
+let score = 0;
+let currentWord = '';
+let currentHint = '';
+let currentCDN = '';
+
+const startBtn = document.getElementById('start-btn'),
+      hintBtn = document.getElementById('hint-btn'),
+      checkBtn = document.getElementById('check-btn'),
+      nextBtn = document.getElementById('next-btn'),
+      wordDisplay = document.getElementById('word-display'),
+      letterBag = document.getElementById('letter-bag'),
+      spellBox = document.getElementById('spell-box'),
+      feedback = document.getElementById('feedback'),
+      stats = document.getElementById('stats'),
+      hintImg = document.getElementById('hint-img'),
+      rewards = document.getElementById('rewards'),
+      aiHintText = document.getElementById('ai-hint-text');
+
+function updateStars(count){
+  rewards.innerHTML='';
+  for(let i=0;i<5;i++){
+    const s=document.createElement('span');
+    s.className='star';
+    if(i<count) s.classList.add('earned');
+    rewards.appendChild(s);
+  }
+}
+
+function shuffle(a){
+  const arr=a.slice();
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function initPools(){
+  wordsPool = {};
+  for(const lvl of Object.keys(words)){
+    wordsPool[lvl] = shuffle(words[lvl].slice());
+  }
+}
+
+// ---- Adaptive stats ----
+function loadStats(){
+  try{
+    return JSON.parse(localStorage.getItem('spellquest_stats') || '{}');
+  }catch(e){ return {}; }
+}
+function saveStats(s){
+  localStorage.setItem('spellquest_stats', JSON.stringify(s));
+}
+function updateWordStats(word, correct){
+  const s = loadStats();
+  if(!s[word]) s[word] = { attempts:0, correct:0 };
+  s[word].attempts++;
+  if(correct) s[word].correct++;
+  saveStats(s);
+}
+function chooseAdaptiveWord(levelList){
+  const s = loadStats();
+  const scored = levelList.map(w => {
+    const st = s[w.word] || { attempts:0, correct:0 };
+    const acc = st.attempts ? (st.correct / st.attempts) : 0;
+    const priority = (1 - acc) + Math.random()*0.15;
+    return { w, priority };
+  });
+  scored.sort((a,b)=> b.priority - a.priority);
+  return scored[0].w;
+}
+
+function getNextWordObjForLevel(level){
+  if(!wordsPool[level] || wordsPool[level].length === 0){
+    wordsPool[level] = shuffle(words[level].slice());
+  }
+  const candidates = wordsPool[level].slice(0,4);
+  const chosen = chooseAdaptiveWord(candidates);
+  const idx = wordsPool[level].findIndex(o => o.word === chosen.word);
+  if(idx >= 0) wordsPool[level].splice(idx,1);
+  return chosen;
+}
+
+// ---- Game flow ----
+startBtn.onclick = () => {
+  score = 0;
+  currentLevel = 1;
+  initPools();
+  updateStars(0);
+  stats.textContent = `Score: 0 | Level: 1`;
+  feedback.textContent = '';
+  nextBtn.style.display = 'none';
+  checkBtn.disabled = true;
+  hintBtn.disabled = true;
+  hintImg.style.display = 'none';
+  aiHintText.textContent = '';
+  loadWord();
+};
+
+function loadWord(){
+  feedback.textContent = '';
+  spellBox.innerHTML='';
+  letterBag.innerHTML='';
+  checkBtn.disabled = true;
+  hintBtn.disabled = false;
+  hintImg.style.display = 'none';
+  aiHintText.textContent = '';
+  hintBtn.textContent = 'Show Hint';
+
+  if(!words[currentLevel]) currentLevel = Math.max(...Object.keys(words).map(Number));
+
+  const wordObj = getNextWordObjForLevel(String(currentLevel));
+  currentWord = wordObj.word;
+  currentHint = wordObj.hint;
+  currentCDN = wordObj.cdn || '';
+
+  hintImg.src = currentHint;
+  hintImg.alt = `Hint image for ${currentWord}`;
+  hintImg.onerror = () => { if(currentCDN) hintImg.src = currentCDN; else hintImg.style.display='none'; };
+
+  const letters = shuffle(currentWord.split(''));
+  letters.forEach(letter => {
+    const tile = createTile(letter);
+    tile.onclick = () => { toggleTile(tile); };
+    letterBag.appendChild(tile);
+  });
+
+  stats.textContent = `Score: ${score} | Level: ${currentLevel}`;
+  wordDisplay.textContent = 'Press to listen to the word';
+}
+
+function createTile(letter){
+  const d = document.createElement('div');
+  d.className='tile';
+  d.dataset.letter = letter;
+  d.textContent = letter.toUpperCase();
+  d.setAttribute('draggable','true');
+  d.addEventListener('dragstart', () => d.classList.add('dragging'));
+  d.addEventListener('dragend', () => d.classList.remove('dragging'));
+  return d;
+}
+
+function toggleTile(tile){
+  const parent = tile.parentNode;
+  if(parent === letterBag){
+    spellBox.appendChild(tile);
+  } else {
+    letterBag.appendChild(tile);
+  }
+  updateCheckButton();
+}
+
+spellBox.addEventListener('dragover', e => e.preventDefault());
+spellBox.addEventListener('drop', e => {
+  e.preventDefault();
+  const dragging = document.querySelector('.dragging');
+  if(dragging && dragging.parentNode === letterBag){
+    spellBox.appendChild(dragging);
+    updateCheckButton();
+  }
+});
+letterBag.addEventListener('dragover', e => e.preventDefault());
+letterBag.addEventListener('drop', e => {
+  e.preventDefault();
+  const dragging = document.querySelector('.dragging');
+  if(dragging && dragging.parentNode === spellBox){
+    letterBag.appendChild(dragging);
+    updateCheckButton();
+  }
+});
+
+function updateCheckButton(){
+  checkBtn.disabled = (spellBox.children.length !== currentWord.length);
+  hintBtn.disabled = false;
+}
+
+checkBtn.onclick = () => {
+  const attempt = Array.from(spellBox.children).map(t => t.dataset.letter).join('');
+  if(attempt === currentWord){
+    feedback.style.color = '#27ae60';
+    feedback.textContent = '🎉 Correct! Well done!';
+    score++;
+    updateStars(Math.min(score,5));
+    stats.textContent = `Score: ${score} | Level: ${currentLevel}`;
+    checkBtn.disabled = true;
+    hintBtn.disabled = true;
+    nextBtn.style.display = 'inline-block';
+    updateWordStats(currentWord, true);
+
+    if(score % 3 === 0){
+      const nextL = currentLevel + 1;
+      if(words[nextL]){
+        currentLevel = nextL;
+        setTimeout(()=> alert(`🎉 Level Up! Now Level ${currentLevel}`), 30);
+      }
+    }
+  } else {
+    feedback.style.color = '#e94e77';
+    feedback.textContent = 'Oops! Not quite — try again or use the hint.';
+    updateWordStats(currentWord, false);
+  }
+};
+
+nextBtn.onclick = () => {
+  loadWord();
+  nextBtn.style.display = 'none';
+  checkBtn.disabled = true;
+  hintBtn.disabled = false;
+  feedback.textContent = '';
+  hintImg.style.display = 'none';
+  hintBtn.textContent = 'Show Hint';
+  aiHintText.textContent = '';
+};
+
+async function fetchAIHint(word){
+  try{
+    const resp = await fetch('/api/hint', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ word })
+    });
+    if(!resp.ok) throw new Error('AI hint failed');
+    const j = await resp.json();
+    return j.hint || '';
+  }catch(e){
+    console.error('AI hint error', e);
+    return '';
+  }
+}
+
+hintBtn.onclick = async () => {
+  if(hintImg.style.display === 'block'){
+    hintImg.style.display = 'none';
+    hintBtn.textContent = 'Show Hint';
+    aiHintText.textContent = '';
+  } else {
+    hintImg.style.display = 'block';
+    hintBtn.textContent = 'Hide Hint';
+    aiHintText.textContent = 'Thinking...';
+    const h = await fetchAIHint(currentWord);
+    if(h) aiHintText.textContent = h;
+    else aiHintText.textContent = '';
+  }
+};
+
+wordDisplay.onclick = () => {
+  if(currentWord){
+    const u = new SpeechSynthesisUtterance(currentWord);
+    window.speechSynthesis.speak(u);
+  }
+};
+wordDisplay.addEventListener('keydown', e => {
+  if(e.key === 'Enter' || e.key === ' '){
+    e.preventDefault();
+    wordDisplay.click();
+  }
+});
+
+updateStars(0);
+</script>
+</body>
+</html>

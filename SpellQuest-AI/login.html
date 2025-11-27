@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - SpellQuest</title>
+<style>
+  body { font-family: 'Comic Sans MS', cursive, Arial; background: linear-gradient(135deg,#ffe6f0,#fff); display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+  .login-box { background:#fff0f5; padding:30px; border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,0.15); width:350px; text-align:center; transition: transform 0.2s; }
+  .shake { animation: shake 0.5s; }
+  @keyframes shake { 0%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-8px);} 80%{transform:translateX(8px);} 100%{transform:translateX(0);} }
+  input { width: 90%; padding:12px; margin:10px 0; border:2px solid #d6336c; border-radius:10px; font-size:16px; }
+  input:focus { border-color:#e04b87; box-shadow:0 0 8px #e04b87; outline:none; }
+  button { width:100%; padding:12px; background:#d6336c; color:white; border:none; border-radius:12px; font-size:18px; cursor:pointer; }
+  button:hover { background:#e04b87; transform:scale(1.05); }
+  a { display:block; margin-top:15px; color:#d6336c; text-decoration:none; font-weight:bold; }
+  a:hover { color:#e04b87; }
+</style>
+</head>
+<body>
+  <div class="login-box" id="loginBox">
+    <h2>🔐 Login</h2>
+    <form id="loginForm">
+      <input type="text" name="username" placeholder="Enter Username" required>
+      <input type="password" name="password" placeholder="Enter Password" required>
+      <button type="submit">Login</button>
+    </form>
+    <a href="register.html">Don't have an account? Register</a>
+  </div>
+
+<script>
+const loginForm = document.getElementById('loginForm');
+const loginBox = document.getElementById('loginBox');
+
+loginForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const formData = {
+    username: loginForm.username.value.trim(),
+    password: loginForm.password.value.trim()
+  };
+
+  try {
+    const res = await fetch('/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(formData)
+    });
+
+    const data = await res.json(); // <-- parse JSON first
+
+    if(data.success){              // <-- check success property
+      window.location.href = '/index.html';
+    } else {
+      loginBox.classList.add('shake');
+      setTimeout(()=>loginBox.classList.remove('shake'), 500);
+    }
+  } catch(err) {
+    console.error(err);
+    loginBox.classList.add('shake');
+    setTimeout(()=>loginBox.classList.remove('shake'), 500);
+  }
+});
+</script>
+
+</body>
+</html>
